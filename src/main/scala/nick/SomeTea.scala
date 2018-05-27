@@ -25,7 +25,7 @@ object SomeTea extends Bot {
     n = gs.field.head.length
     id = gs.botId
     iter += 1
-    if (id == 0 && iter == 1) sharedPut(iter.toString)
+    if (id == 0) sharedPut(iter.toString)
     else shared = sharedGet()
 
     val me = findAll(gs)
