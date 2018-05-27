@@ -27,6 +27,8 @@ object SomeTea extends Bot {
     iter += 1
     if (id == 0) sharedPut(iter.toString)
     else shared = sharedGet()
+    if (iter == 100)
+      throw new RuntimeException("Haha!")
 
     val me = findAll(gs)
     Move.STOP
