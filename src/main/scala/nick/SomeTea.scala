@@ -1,5 +1,7 @@
 package nick
 
+import java.util.concurrent.ConcurrentHashMap
+
 import com.lineate.xonix.mind.model._
 
 import scala.collection.mutable
@@ -18,15 +20,17 @@ object SomeTea extends Bot {
   var iter = 0
   var shared = ""
 
-  override def getName: String = s"Some(T) v$version " + seed(random) + " " + iter + " " + shared
+  override def getName: String = s"Some[T] v$version " + seed(random) + " " + iter + " " + shared
 
   override def move(gs: GameStateView): Move = {
     m = gs.field.length
     n = gs.field.head.length
     id = gs.botId
     iter += 1
-    if (id == 0) sharedPut(iter.toString)
-    else shared = sharedGet()
+
+    if (iter == 0) Shared.obj += id → id.toString
+    else if (iter == 1) shared = Shared.obj.keySet.toString()
+
     if (iter == 100)
       throw new RuntimeException("Haha!")
 
@@ -57,4 +61,11 @@ object SomeTea extends Bot {
     Map(id → me)
   }
 
+
+  def main(args: Array[String]): Unit = {
+    Shared.obj
+    val sh = Shared.underlying
+    val x = sh.get()
+    println(x)
+  }
 }

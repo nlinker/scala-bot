@@ -2,6 +2,7 @@ package nick
 
 import java.util.concurrent.atomic.AtomicLong
 
+import scala.collection.mutable
 import scala.util.Random
 
 object Utils {
@@ -19,17 +20,6 @@ object Utils {
     seedF.setAccessible(true)
     seedF.get(random.self).asInstanceOf[AtomicLong].get()
   }
-
-  def sharedPut(str: String): Unit = {
-    val f = classOf[java.beans.Expression].getDeclaredField("unbound")
-    f.setAccessible(true)
-    f.set(null, str)
-  }
-
-  def sharedGet(): String = {
-    val f = classOf[java.beans.Expression].getDeclaredField("unbound")
-    f.setAccessible(true)
-    f.get(null).asInstanceOf[String]
-  }
-
 }
+
+
