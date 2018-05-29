@@ -18,15 +18,17 @@ class SomeTeaTest extends FunSuite with Matchers {
   test("game state test") {
     val id = 0
     val head = Point.of(0, 0)
-    val cells = """
-        |*.*.*.*.*.*.*.
-        |*. a a a . .*.
-        |*. a A a . .*.
-        |*. . a a . .*.
-        |*.*.*.*.*.*B*.
-      """.stripMargin.cells
+    // ugly
+    val cells = Array(
+      Array(Cell.border()), Array(Cell.border()), Array(Cell.border()), Array(Cell.border()),
+      Array(Cell.border()), Array(Cell.empty()), Array(Cell.empty()), Array(Cell.border()),
+      Array(Cell.border()), Array(Cell.empty()), Array(Cell.empty()), Array(Cell.border()),
+      Array(Cell.border()), Array(Cell.border()), Array(Cell.border()), Array(Cell.border())
+    )
     val gsv = new GameStateView(id, head, cells)
-    println(gsv)
+    val bot = new SomeTea
+    val path = bot.corner(Point.of(2, 2))
+    println(path)
   }
 
   implicit class CellsConv(s: String) {
