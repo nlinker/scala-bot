@@ -32,13 +32,13 @@
     <dependency>
       <groupId>com.lineate</groupId>
       <artifactId>xonix-mind-commons</artifactId>
-      <version>1.0.1</version>
+      <version>1.1.0</version>
     </dependency>
-    <!--<dependency>-->
-      <!--<groupId>com.lineate</groupId>-->
-      <!--<artifactId>xonix-mind-app</artifactId>-->
-      <!--<version>1.1.0</version>-->
-    <!--</dependency>-->
+    <dependency>
+      <groupId>com.lineate</groupId>
+      <artifactId>xonix-mind-app</artifactId>
+      <version>1.1.0</version>
+    </dependency>
     <!--<dependency>-->
       <!--<groupId>org.springframework.data</groupId>-->
       <!--<artifactId>spring-data-jpa</artifactId>-->
