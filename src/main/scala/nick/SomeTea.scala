@@ -10,7 +10,7 @@ import scala.util.Random
 class SomeTea extends Bot {
 
   val version = 1
-  val random = new Random(987)
+  val random = new Random()
   val neigh = Seq(Pair(0, -1), Pair(-1, 0), Pair(0, 1), Pair(1, 0))
 
   val me = new mutable.ArrayBuffer[Point]()
@@ -73,7 +73,7 @@ class SomeTea extends Bot {
     ct == CellType.BORDER || ct == CellType.OWNED
   }
 
-  def findClosest(origin: Point, isAccessible: Point ⇒ Boolean): Option[Point] = {
+  def findClosest(origin: Point, predicate: Point ⇒ Boolean): Option[Point] = {
     val oi = origin.getRow
     val oj = origin.getCol
     for (r ← 1 to (m + n)) {
@@ -83,10 +83,10 @@ class SomeTea extends Bot {
         val p2 = Point.of(oi - r + k, oj - k)
         val p3 = Point.of(oi + k, oj - r + k)
         val p4 = Point.of(oi + r - k, oj + k)
-        if (isAccessible(p1)) return Some(p1)
-        else if (isAccessible(p2)) return Some(p2)
-        else if (isAccessible(p3)) return Some(p3)
-        else if (isAccessible(p4)) return Some(p4)
+        if (predicate(p1)) return Some(p1)
+        else if (predicate(p2)) return Some(p2)
+        else if (predicate(p3)) return Some(p3)
+        else if (predicate(p4)) return Some(p4)
       }
     }
     None
