@@ -1,13 +1,6 @@
 package nick
 
-import java.util.Optional
-import java.util.function.BiConsumer
-
-import com.lineate.xonix.mind.domain.MatchDb
 import com.lineate.xonix.mind.model._
-import com.lineate.xonix.mind.repositories.{BotRepository, MatchRepository}
-import com.lineate.xonix.mind.service._
-import com.lineate.xonix.mind.service.repository.BotRepositoriesProvider
 import nick.Utils._
 
 import scala.collection.mutable
@@ -23,36 +16,45 @@ class SomeTea extends Bot {
   val me = new mutable.ArrayBuffer[Point]()
   val all = new mutable.HashMap[Int, Seq[Point]]()
 
+  var randomSeed = 0L
   var m = 0
   var n = 0
   var id = 0
   var iter = 0
-  var head: Point = Point.of(0, 0)
-  var lastHead: Option[Point] = None
+  var field: Array[Array[Cell]] = Array()
+  var curHead: Point = Point.of(0, 0)
+  var lastHead: Point = Point.of(0, 0)
   var path: Seq[Point] = Seq()
-  var lastMove: Option[Move] = None
   var curMove: Option[Move] = None
+  var lastMove: Option[Move] = None
 
   override def getName: String =
-    s"Some[T] v$version " + seed(random) + " " + iter + " " + showMove(curMove)
+    s"Some[T] v$version " + randomSeed + " " + iter + " " + showMove(curMove)
 
   override def move(gs: GameStateView): Move = {
     initStuff(gs)
 
-    val me = findAll(gs)(id)
+    // val me = findAll(gs)(id)
+    // if we were bitten, then reset the path
+    if (distance(lastHead, curHead) > 1) {
+      path = Seq()
+    }
 
     val theMove = if (path.nonEmpty) {
       val newHead = path.head
       path = path.tail
-      direction(head, newHead)
+      direction(curHead, newHead)
     } else {
       // generate the new path
       val dst = findEmpty(gs, 20).headOption
       if (dst.isDefined) {
-        path = buildPath(head, dst.get, horzFirst = true)
+        path = buildPath(curHead, dst.get, random.nextBoolean())
+        findClosest(dst.get, borderOrOwned).foreach { border ⇒
+          path = path ++ buildPath(dst.get, border, random.nextBoolean())
+        }
         val newHead = path.head
         path = path.tail
-        direction(head, newHead)
+        direction(curHead, newHead)
       } else {
         Move.STOP
       }
@@ -61,6 +63,14 @@ class SomeTea extends Bot {
     curMove = Some(theMove)
 
     theMove
+  }
+
+  def distance(src: Point, dst: Point): Int =
+    Math.abs(dst.getRow - src.getRow) + Math.abs(dst.getCol - src.getCol)
+
+  def borderOrOwned(p: Point): Boolean = {
+    val ct = field(p.getRow)(p.getCol).getCellType
+    ct == CellType.BORDER || ct == CellType.OWNED
   }
 
   def findClosest(origin: Point, isAccessible: Point ⇒ Boolean): Option[Point] = {
@@ -84,11 +94,11 @@ class SomeTea extends Bot {
 
   def showMove(maybeMove: Option[Move]): String = {
     maybeMove match {
-      case Some(Move.LEFT)  ⇒ "\uD83E\uDC50"
-      case Some(Move.DOWN)  ⇒ "\uD83E\uDC53"
+      case Some(Move.LEFT) ⇒ "\uD83E\uDC50"
+      case Some(Move.DOWN) ⇒ "\uD83E\uDC53"
       case Some(Move.RIGHT) ⇒ "\uD83E\uDC52"
-      case Some(Move.UP)    ⇒ "\uD83E\uDC51"
-      case _                ⇒ ""
+      case Some(Move.UP) ⇒ "\uD83E\uDC51"
+      case _ ⇒ ""
     }
   }
 
@@ -97,10 +107,12 @@ class SomeTea extends Bot {
       m = gs.field.length
       n = gs.field.head.length
       id = gs.botId
-    } else {
-      iter += 1
+      randomSeed = seed(random)
     }
-    head = gs.head
+    iter += 1
+    field = gs.field
+    lastHead = curHead
+    curHead = gs.head
   }
 
   def direction(src: Point, p: Point): Move = {
@@ -140,10 +152,10 @@ class SomeTea extends Bot {
       val i = random.nextInt(m)
       val j = random.nextInt(n)
       gs.field(i)(j).getCellType match {
-        case CellType.EMPTY  ⇒ buf += Point.of(i, j)
+        case CellType.EMPTY ⇒ buf += Point.of(i, j)
         case CellType.BORDER ⇒
-        case CellType.OWNED  ⇒
-        case CellType.TAIL   ⇒
+        case CellType.OWNED ⇒
+        case CellType.TAIL ⇒
       }
     }
     buf
@@ -175,38 +187,45 @@ class SomeTea extends Bot {
 
 object SomeTea {
 
-  def main(args: Array[String]): Unit = {
-
-    import scala.collection.JavaConverters._
-
-    lazy val botRepository: BotRepository = null
-    lazy val matchRepository: MatchRepository = null
-
-    val bots = Array(new SomeTea: Bot, new SomeTea).toBuffer.asJava
-
-    val botIds = (0 until bots.size()).map(x ⇒ java.lang.Integer.valueOf(x + 10)).asJava
-    val botProvider: BotProvider = new BotRepositoriesProvider
-    val botService: BotService = new BotServiceImpl(botProvider, botRepository)
-    val matchService = new MatchServiceImpl(matchRepository, botService)
-    val fieldService = new FieldServiceImpl
-    val gsService = new GameStateServiceImpl
-    val game = new GamePlayServiceImpl(botService, matchService, fieldService, gsService)
-    val field = fieldService.create(8, 10)
-    val heads = botService.createHeads(botIds, field)
-    val matchDb = {
-      val m = new MatchDb()
-      m.setId(1)
-      m.setDuration(100L)
-      m.setPercent(90.0)
-      m.setStatus(Status.New)
-      m
-    }
-
-    val match0: Match = game.createMatch(heads, bots, field, matchDb)
-    val logger: BiConsumer[Integer, GameState] = (_, gs) => {
-      println(gsService.describeGameState(gs, true))
-    }
-    game.runMatch(match0, Optional.of(10L), logger)
-
-  }
+  //import java.util.Optional
+  //import java.util.function.BiConsumer
+  //
+  //import com.lineate.xonix.mind.domain.MatchDb
+  //import com.lineate.xonix.mind.repositories.{BotRepository, MatchRepository}
+  //import com.lineate.xonix.mind.service._
+  //import com.lineate.xonix.mind.service.repository.BotRepositoriesProvider
+  //def main(args: Array[String]): Unit = {
+  //
+  //  import scala.collection.JavaConverters._
+  //
+  //  lazy val botRepository: BotRepository = null
+  //  lazy val matchRepository: MatchRepository = null
+  //
+  //  val bots = Array(new SomeTea: Bot, new SomeTea).toBuffer.asJava
+  //
+  //  val botIds = (0 until bots.size()).map(x ⇒ java.lang.Integer.valueOf(x + 10)).asJava
+  //  val botProvider: BotProvider = new BotRepositoriesProvider
+  //  val botService: BotService = new BotServiceImpl(botProvider, botRepository)
+  //  val matchService = new MatchServiceImpl(matchRepository, botService)
+  //  val fieldService = new FieldServiceImpl
+  //  val gsService = new GameStateServiceImpl
+  //  val game = new GamePlayServiceImpl(botService, matchService, fieldService, gsService)
+  //  val field = fieldService.create(8, 10)
+  //  val heads = botService.createHeads(botIds, field)
+  //  val matchDb = {
+  //    val m = new MatchDb()
+  //    m.setId(1)
+  //    m.setDuration(100L)
+  //    m.setPercent(90.0)
+  //    m.setStatus(Status.New)
+  //    m
+  //  }
+  //
+  //  val match0: Match = game.createMatch(heads, bots, field, matchDb)
+  //  val logger: BiConsumer[Integer, GameState] = (_, gs) => {
+  //    println(gsService.describeGameState(gs, true))
+  //  }
+  //  game.runMatch(match0, Optional.of(100L), logger)
+  //
+  //}
 }

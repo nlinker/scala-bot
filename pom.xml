@@ -34,21 +34,21 @@
       <artifactId>xonix-mind-commons</artifactId>
       <version>1.1.0</version>
     </dependency>
-    <dependency>
-      <groupId>com.lineate</groupId>
-      <artifactId>xonix-mind-app</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.data</groupId>
-      <artifactId>spring-data-jpa</artifactId>
-      <version>2.0.5.RELEASE</version>
-    </dependency>
-    <dependency>
-      <groupId>org.hibernate.javax.persistence</groupId>
-      <artifactId>hibernate-jpa-2.1-api</artifactId>
-      <version>1.0.0.Final</version>
-    </dependency>
+    <!--<dependency>-->
+      <!--<groupId>com.lineate</groupId>-->
+      <!--<artifactId>xonix-mind-app</artifactId>-->
+      <!--<version>1.1.0</version>-->
+    <!--</dependency>-->
+    <!--<dependency>-->
+      <!--<groupId>org.springframework.data</groupId>-->
+      <!--<artifactId>spring-data-jpa</artifactId>-->
+      <!--<version>2.0.5.RELEASE</version>-->
+    <!--</dependency>-->
+    <!--<dependency>-->
+      <!--<groupId>org.hibernate.javax.persistence</groupId>-->
+      <!--<artifactId>hibernate-jpa-2.1-api</artifactId>-->
+      <!--<version>1.0.0.Final</version>-->
+    <!--</dependency>-->
 
 
     <!-- Test -->
