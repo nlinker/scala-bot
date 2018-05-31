@@ -1,118 +1,146 @@
 package nick
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.Optional
+import java.util.function.BiConsumer
 
+import com.lineate.xonix.mind.domain.MatchDb
 import com.lineate.xonix.mind.model._
+import com.lineate.xonix.mind.repositories.{BotRepository, MatchRepository}
+import com.lineate.xonix.mind.service._
+import com.lineate.xonix.mind.service.repository.BotRepositoriesProvider
+import nick.Utils._
 
 import scala.collection.mutable
-import scala.util.Random
-import Utils._
-
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 class SomeTea extends Bot {
 
   val version = 1
-  val random = new Random()
-
+  val random = new Random(987)
   val neigh = Seq(Pair(0, -1), Pair(-1, 0), Pair(0, 1), Pair(1, 0))
-  var head: Point = Point.of(0, 0)
-  var oldHead: Option[Point] = None
-  var path: Option[Seq[Point]] = None
+
+  val me = new mutable.ArrayBuffer[Point]()
+  val all = new mutable.HashMap[Int, Seq[Point]]()
+
   var m = 0
   var n = 0
   var id = 0
   var iter = 0
-  var shared = ""
+  var head: Point = Point.of(0, 0)
+  var lastHead: Option[Point] = None
+  var path: Seq[Point] = Seq()
+  var lastMove: Option[Move] = None
+  var curMove: Option[Move] = None
 
-  override def getName: String = s"Some[T] v$version " + seed(random) + " " + iter + " " + shared
+  override def getName: String =
+    s"Some[T] v$version " + seed(random) + " " + iter + " " + showMove(curMove)
 
   override def move(gs: GameStateView): Move = {
-    val field = gs.field
-    m = field.length
-    n = field.head.length
-    id = gs.botId
-    iter += 1
-    if (oldHead.isEmpty) {
-      head = gs.head
-    } else {
-      oldHead = Some(gs.head)
-      head = gs.head
-    }
+    initStuff(gs)
 
-    val me = findAll(gs)
+    val me = findAll(gs)(id)
 
-    if (path.isDefined) {
-      val newHead = path.get.head
-      path = Some(path.get.tail)
-      return direction(newHead)
+    val theMove = if (path.nonEmpty) {
+      val newHead = path.head
+      path = path.tail
+      direction(head, newHead)
     } else {
       // generate the new path
-      val empty = findEmpty(gs, 20).headOption
-      if (empty.isDefined) {
-        path = Some(corner(empty.get))
-        val newHead = path.get.head
-        path = Some(path.get.tail)
-        return direction(newHead)
+      val dst = findEmpty(gs, 20).headOption
+      if (dst.isDefined) {
+        path = buildPath(head, dst.get, horzFirst = true)
+        val newHead = path.head
+        path = path.tail
+        direction(head, newHead)
+      } else {
+        Move.STOP
       }
     }
+    lastMove = curMove
+    curMove = Some(theMove)
 
-     Move.STOP
+    theMove
   }
 
-  def direction(p: Point): Move = {
-    val hi = head.getRow
-    val hj = head.getCol
-    val i = p.getRow
-    val j = p.getCol
-    if (i == hi && j <= hj) {
+  def findClosest(origin: Point, isAccessible: Point ⇒ Boolean): Option[Point] = {
+    val oi = origin.getRow
+    val oj = origin.getCol
+    for (r ← 1 to (m + n)) {
+      // diagonal points
+      for (k ← 0 until r) {
+        val p1 = Point.of(oi - k, oj + r - k)
+        val p2 = Point.of(oi - r + k, oj - k)
+        val p3 = Point.of(oi + k, oj - r + k)
+        val p4 = Point.of(oi + r - k, oj + k)
+        if (isAccessible(p1)) return Some(p1)
+        else if (isAccessible(p2)) return Some(p2)
+        else if (isAccessible(p3)) return Some(p3)
+        else if (isAccessible(p4)) return Some(p4)
+      }
+    }
+    None
+  }
+
+  def showMove(maybeMove: Option[Move]): String = {
+    maybeMove match {
+      case Some(Move.LEFT)  ⇒ "\uD83E\uDC50"
+      case Some(Move.DOWN)  ⇒ "\uD83E\uDC53"
+      case Some(Move.RIGHT) ⇒ "\uD83E\uDC52"
+      case Some(Move.UP)    ⇒ "\uD83E\uDC51"
+      case _                ⇒ ""
+    }
+  }
+
+  def initStuff(gs: GameStateView): Unit = {
+    if (iter == 0) {
+      m = gs.field.length
+      n = gs.field.head.length
+      id = gs.botId
+    } else {
+      iter += 1
+    }
+    head = gs.head
+  }
+
+  def direction(src: Point, p: Point): Move = {
+    val si = src.getRow
+    val sj = src.getCol
+    val di = p.getRow
+    val dj = p.getCol
+    if (di == si && dj <= sj) {
       Move.LEFT
-    } else if (i == hi && j > hj) {
+    } else if (di == si && dj > sj) {
       Move.RIGHT
-    } else if (i < hi) {
+    } else if (di < si) {
       Move.UP
     } else {
       Move.DOWN
     }
   }
 
-
-  // generate corner path
-  def corner(p: Point): Seq[Point] = {
-    // we have a point, that is not a head, we need to path -> ^
-    val hi = head.getRow
-    val hj = head.getCol
-    val i = p.getRow
-    val j = p.getCol
-    // find where our head relative to the point p
-    val path = if (i <= hi && j <= hj) {
-      val horz = (j to hj).reverse.map(Point.of(hi, _))
-      val vert = (i to hi).reverse.map(Point.of(_, j))
-      horz ++ vert
-    } else if (i > hi && j <= hj) {
-      val horz = (j to hj).reverse.map(Point.of(hi, _))
-      val vert = (hi to i).map(Point.of(_, j))
-      horz ++ vert
-    } else if (i <= hi && j > hj) {
-      val horz = (hj to j).map(Point.of(hi, _))
-      val vert = (i to hi).reverse.map(Point.of(_, j))
-      horz ++ vert
-    } else {
-      // (i > hi && j > hj)
-      val horz = (hj to j).map(Point.of(hi, _))
-      val vert = (i to hi).map(Point.of(_, j))
-      horz ++ vert
-    }
-    path
+  // hf - horizontal first
+  def buildPath(src: Point, dst: Point, horzFirst: Boolean): Seq[Point] = {
+    val ord = implicitly[Ordering[Int]]
+    val sj = src.getCol
+    val si = src.getRow
+    val dj = dst.getCol
+    val di = dst.getRow
+    // ← → ↑ ↓ ↖ ↗ ↘ ↙
+    val ts = if (horzFirst)
+      si.h(sj, dj) ++ dj.v(si, di) // do ← → then ↑ ↓
+    else
+      sj.v(si, di) ++ di.h(sj, dj) // do ↑ ↓ then ← →
+    ts.map { case (i, j) ⇒ Point.of(i, j) }
   }
 
   def findEmpty(gs: GameStateView, np: Int): Seq[Point] = {
     val buf = new ArrayBuffer[Point]()
     for (k ← 0 until np) {
-      val x = random.nextInt(n)
-      val y = random.nextInt(m)
-      gs.field(y)(x).getCellType match {
-        case CellType.EMPTY  ⇒ buf += Point.of(x, y)
+      val i = random.nextInt(m)
+      val j = random.nextInt(n)
+      gs.field(i)(j).getCellType match {
+        case CellType.EMPTY  ⇒ buf += Point.of(i, j)
         case CellType.BORDER ⇒
         case CellType.OWNED  ⇒
         case CellType.TAIL   ⇒
@@ -143,12 +171,42 @@ class SomeTea extends Bot {
     }
     Map(id → me)
   }
+}
 
+object SomeTea {
 
   def main(args: Array[String]): Unit = {
-    Shared.obj
-    val sh = Shared.underlying
-    val x = sh.get()
-    println(x)
+
+    import scala.collection.JavaConverters._
+
+    lazy val botRepository: BotRepository = null
+    lazy val matchRepository: MatchRepository = null
+
+    val bots = Array(new SomeTea: Bot, new SomeTea).toBuffer.asJava
+
+    val botIds = (0 until bots.size()).map(x ⇒ java.lang.Integer.valueOf(x + 10)).asJava
+    val botProvider: BotProvider = new BotRepositoriesProvider
+    val botService: BotService = new BotServiceImpl(botProvider, botRepository)
+    val matchService = new MatchServiceImpl(matchRepository, botService)
+    val fieldService = new FieldServiceImpl
+    val gsService = new GameStateServiceImpl
+    val game = new GamePlayServiceImpl(botService, matchService, fieldService, gsService)
+    val field = fieldService.create(8, 10)
+    val heads = botService.createHeads(botIds, field)
+    val matchDb = {
+      val m = new MatchDb()
+      m.setId(1)
+      m.setDuration(100L)
+      m.setPercent(90.0)
+      m.setStatus(Status.New)
+      m
+    }
+
+    val match0: Match = game.createMatch(heads, bots, field, matchDb)
+    val logger: BiConsumer[Integer, GameState] = (_, gs) => {
+      println(gsService.describeGameState(gs, true))
+    }
+    game.runMatch(match0, Optional.of(10L), logger)
+
   }
 }

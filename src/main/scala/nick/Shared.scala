@@ -3,6 +3,7 @@ package nick
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
+// shared object for all bots
 class Shared[T: ClassTag] {
 
   def put(obj: T): Unit = {

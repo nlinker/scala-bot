@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
+            </Pattern>
+        </layout>
+    </appender>
+    <appender name="match-log" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <key>matchId</key>
+            <defaultValue>0</defaultValue>
+        </discriminator>
+        <sift>
+            <appender name="match-${matchId}" class="ch.qos.logback.core.FileAppender">
+                <file>logs/match-${matchId}.log</file>
+                <append>false</append>
+                <encoder>
+                    <pattern>%msg%n</pattern>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
+    <root level="error">
+        <appender-ref ref="console"/>
+    </root>
+
+</configuration>
+
