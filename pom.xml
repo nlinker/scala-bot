@@ -38,7 +38,7 @@
       <groupId>com.lineate</groupId>
       <artifactId>xonix-mind-app</artifactId>
       <version>1.1.0</version>
-      <!--<classifier>exec</classifier>-->
+      <classifier>classes</classifier>
     </dependency>
     <!--<dependency>-->
       <!--<groupId>org.springframework.data</groupId>-->
