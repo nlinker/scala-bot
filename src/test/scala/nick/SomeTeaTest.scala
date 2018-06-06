@@ -1,13 +1,8 @@
 package nick
 
-import java.util.concurrent.atomic.AtomicReference
-
-import com.lineate.xonix.mind.model._
 import org.junit.runner.RunWith
-import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.junit.JUnitRunner
-
-import scala.collection.mutable
+import org.scalatest.{FunSuite, Matchers}
 
 @RunWith(classOf[JUnitRunner])
 class SomeTeaTest extends FunSuite with Matchers {

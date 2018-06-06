@@ -190,47 +190,8 @@ class SomeTea extends Bot {
 
 object SomeTea {
 
-  import java.util.Optional
-  import java.util.function.BiConsumer
-
-  import com.lineate.xonix.mind.domain.MatchDb
-  import com.lineate.xonix.mind.repositories.{BotRepository, MatchRepository, BotMatchRepository}
-  import com.lineate.xonix.mind.service._
-  import com.lineate.xonix.mind.service.repository.BotRepositoriesProvider
-
   def main(args: Array[String]): Unit = {
-
-    import scala.collection.JavaConverters._
-
-    lazy val botRepository: BotRepository = null
-    lazy val matchRepository: MatchRepository = null
-    lazy val botMatchRepository: BotMatchRepository = null
-
-    val bots = Array(new SomeTea: Bot, new SomeTea).toBuffer.asJava
-
-    val botIds = (0 until bots.size()).map(x ⇒ java.lang.Integer.valueOf(x + 10)).asJava
-    val botProvider: BotProvider = new BotRepositoriesProvider
-    val botService: BotService = new BotServiceImpl(botProvider, botRepository)
-    val matchService = new MatchServiceImpl(matchRepository, botService, botMatchRepository)
-    val fieldService = new FieldServiceImpl
-    val gsService = new GameStateServiceImpl
-    val game = new GamePlayServiceImpl(botService, matchService, fieldService, gsService, botMatchRepository)
-    val field = fieldService.create(8, 10)
-    val heads = botService.createHeads(botIds, field)
-    val matchDb = {
-      val m = new MatchDb()
-      m.setId(1)
-      m.setDuration(100L)
-      m.setPercent(90.0)
-      m.setStatus(Status.New)
-      m
-    }
-
-    val match0: Match = game.createMatch(heads, bots, field, matchDb)
-    val logger: BiConsumer[Integer, InternalGameState] = (_, gs) => {
-      println(gsService.describeGameState(gs, true))
-    }
-    game.runMatch(match0, Optional.of(100L), logger)
+    // TODO
 
   }
 }
