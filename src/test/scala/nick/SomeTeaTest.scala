@@ -1,5 +1,6 @@
 package nick
 
+import com.lineate.xonix.mind.model.Point
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Matchers}
@@ -14,3 +15,4 @@ class SomeTeaTest extends FunSuite with Matchers {
   }
 
 }
+

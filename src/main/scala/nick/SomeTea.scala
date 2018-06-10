@@ -7,6 +7,19 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
+
+object Test extends App {
+  import nick.Decartes.{X, Y, P}
+
+  val x = X(0)
+  val y = Y(2)
+  println(Point.of(x.x + 1, y.y + 2))
+  println(P(x, y))
+  val np = P(x, y) match {
+    case P(a, b) ⇒ println(s"decoded ${a.x} and ${b.y}")
+  }
+}
+
 class SomeTea extends Bot {
 
   val version = 1
@@ -33,15 +46,15 @@ class SomeTea extends Bot {
 
   def initStuff(gs: GameState): Unit = {
     if (iter == 0) {
-      m = gs.field.length
-      n = gs.field.head.length
+      m = gs.cells.length
+      n = gs.cells.head.length
       id = gs.botId
       randomSeed = seed(random)
     }
     iter += 1
-    field = gs.field
+    field = gs.cells
     lastHead = curHead
-    curHead = gs.head
+    curHead = gs.me.head().get()
   }
 
   override def getName: String =
@@ -110,11 +123,11 @@ class SomeTea extends Bot {
 
   def showMove(maybeMove: Option[Move]): String = {
     maybeMove match {
-      case Some(Move.LEFT) ⇒ "\uD83E\uDC50"
-      case Some(Move.DOWN) ⇒ "\uD83E\uDC53"
+      case Some(Move.LEFT)  ⇒ "\uD83E\uDC50"
+      case Some(Move.DOWN)  ⇒ "\uD83E\uDC53"
       case Some(Move.RIGHT) ⇒ "\uD83E\uDC52"
-      case Some(Move.UP) ⇒ "\uD83E\uDC51"
-      case _ ⇒ ""
+      case Some(Move.UP)    ⇒ "\uD83E\uDC51"
+      case _                ⇒ ""
     }
   }
 
@@ -155,36 +168,12 @@ class SomeTea extends Bot {
       val i = random.nextInt(m)
       val j = random.nextInt(n)
       field(i)(j).getCellType match {
-        case CellType.EMPTY ⇒ buf += Point.of(i, j)
+        case CellType.EMPTY  ⇒ buf += Point.of(i, j)
         case CellType.BORDER ⇒
-        case CellType.OWNED ⇒
-        case CellType.TAIL ⇒
+        case CellType.OWNED  ⇒
       }
     }
     buf
-  }
-
-  def findAll(gs: GameState): Map[Int, Seq[Point]] = {
-    val tail = Cell.tail(id)
-    val me = mutable.Buffer(gs.head)
-    // current point
-    var cp = me.headOption
-    while (cp.isDefined) {
-      // seek for lower letter around until not found
-      val p = cp.get
-      val po = neigh.map { it ⇒
-        val i = (p.getRow + it._1).bound(0, m - 1)
-        val j = (p.getCol + it._2).bound(0, n - 1)
-        Point.of(i, j)
-      }.find { it ⇒
-        !me.contains(it) && gs.field(it.getRow)(it.getCol) == tail
-      }
-      po.foreach { nt ⇒
-        me.insert(0, nt)
-      }
-      cp = po
-    }
-    Map(id → me)
   }
 }
 
