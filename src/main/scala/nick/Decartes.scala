@@ -13,8 +13,7 @@ object Decartes {
   implicit val ordX: Ordering[X] = Ordering.by(e => e.x)
   implicit val ordY: Ordering[Y] = Ordering.by(e => e.y)
 
-  //@newsubtype
-  case class X(x: Int) {
+  @newsubtype case class X(x: Int) {
     //def +(o: X) = X(x + o.x)
     //def -(o: X) = X(x - o.x)
     //def *(o: X) = X(x * o.x)
@@ -32,8 +31,7 @@ object Decartes {
     }
   }
 
-  //@newsubtype
-  case class Y(y: Int) {
+  @newsubtype case class Y(y: Int) {
     //def +(o: Y) = Y(y + o.y)
     //def -(o: Y) = Y(y - o.y)
     //def *(o: Y) = Y(y * o.y)
