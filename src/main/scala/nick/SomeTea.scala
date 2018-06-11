@@ -61,7 +61,10 @@ class SomeTea(name: String, random: Random) extends Bot {
       direction(curHead, newHead)
     } else {
       // generate the new path
-      val empties = findRandomEmpty(20).sortBy(distance(curHead, _))
+      val empties1 = findRandomEmpty(20).sortBy(distance(curHead, _))
+      val empties =
+        if (empties1.size >= 5) empties1.drop(4)
+        else empties1
       if (empties.nonEmpty) {
         val dst = empties.head
         val dp = dst - curHead
