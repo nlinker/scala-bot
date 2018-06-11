@@ -2,6 +2,7 @@ package nick
 
 import java.lang.Math.abs
 
+import abc.SBot
 import com.lineate.xonix.mind.model.Move._
 import com.lineate.xonix.mind.model._
 
@@ -21,8 +22,8 @@ class SomeTea(name: String, random: Random) extends Bot {
   val version = 1
 
   // initialized on the first iteration
-  var m = 0
-  var n = 0
+  var m: Y = Y(0)
+  var n: X = X(0)
   var id = 0
 
   // updated on each iteration
@@ -31,16 +32,15 @@ class SomeTea(name: String, random: Random) extends Bot {
   var me: Seq[P] = Seq()
   var all: mutable.Buffer[Seq[P]] = mutable.Buffer()
   def meHead: P = me.last
-  def cells(p: P): Cell = gs.cells(fromX(p.x))(fromY(p.y))
+  def cells(p: P): Cell = gs.cells(fromY(p.y))(fromX(p.x))
   def fromX(x: X): Int = x.x
-  def fromY(y: Y): Int = m - 1 - y.y
-  def from(p: P): Point = Point.of(m - 1 - p.y.y, p.x.x)
-  def to(p: Point): P = P(X(m - 1 - p.getRow), Y(p.getCol))
+  def fromY(y: Y): Int = m.y - 1 - y.y
+  def from(p: P): Point = Point.of(m.y - 1 - p.y.y, p.x.x)
+  def to(p: Point): P = P(X(p.getCol), Y(m.y - 1 - p.getRow))
 
   var curHead: P = P(X(0), Y(0))
   var lastHead: P = P(X(0), Y(0))
   var curMove: Option[Move] = None
-  var lastMove: Option[Move] = None
   var path: Seq[P] = Seq()
 
   override def getName: String =
@@ -55,36 +55,56 @@ class SomeTea(name: String, random: Random) extends Bot {
       path = Seq()
     }
 
-    //val theMove = if (path.nonEmpty) {
-    //  val newHead = path.head
-    //  path = path.tail
-    //  direction(curHead, newHead)
-    //} else {
-    //  // generate the new path
-    //  val dst = findEmpty(field, 20).headOption
-    //  if (dst.isDefined) {
-    //    path = buildPath(curHead, dst.get, random.nextBoolean())
-    //    findClosest(dst.get, borderOrOwned).foreach { border ⇒
-    //      path = path ++ buildPath(dst.get, border, random.nextBoolean())
-    //    }
-    //    val newHead = path.head
-    //    path = path.tail
-    //    direction(curHead, newHead)
-    //  } else {
-    //    STOP
-    //  }
-    //}
-    val theMove = STOP
-    lastMove = curMove
+    val theMove = if (path.nonEmpty) {
+      val newHead = path.head
+      path = path.tail
+      direction(curHead, newHead)
+    } else {
+      // generate the new path
+      val empties = findRandomEmpty(20).sortBy(distance(curHead, _))
+      if (empties.nonEmpty) {
+        val dst = empties.head
+        val dp = dst - curHead
+        val run = buildPath(curHead, dst, dp.x.x < dp.y.y)
+        path = if (run.size >= 2) {
+          val q = run.last
+          val r = run(run.size - 2)
+          // detect where we go and search closest cell so that not to eat self
+          val f = direction(r, q) match {
+            case Move.RIGHT ⇒ (p: P) ⇒ !cells(p).isEmpty && q.x <= p.x
+            case Move.UP    ⇒ (p: P) ⇒ !cells(p).isEmpty && q.y <= p.y
+            case Move.LEFT  ⇒ (p: P) ⇒ !cells(p).isEmpty && p.x <= q.x
+            case Move.DOWN  ⇒ (p: P) ⇒ !cells(p).isEmpty && p.y <= q.y
+            case Move.STOP  ⇒ (p: P) ⇒ !cells(p).isEmpty && p != q
+          }
+          val fin0 = findClosest(m.y + n.x, dst, f)
+          if (fin0.isDefined)
+            run ++ buildPath(dst, fin0.get, dp.x.x < dp.y.y)
+          else
+            run
+        } else {
+          run
+        }
+        if (path.isEmpty) {
+          STOP
+        } else {
+          // path has been updated
+          val newHead = path.head
+          path = path.tail
+          direction(curHead, newHead)
+        }
+      } else {
+        STOP
+      }
+    }
     curMove = Some(theMove)
-
     theMove
   }
 
   def initStuff(apiGs: GameState): Unit = {
     if (iter == 0) {
-      m = apiGs.cells.length
-      n = apiGs.cells.head.length
+      m = Y(apiGs.cells.length)
+      n = X(apiGs.cells.head.length)
       id = apiGs.botId
     }
     iter += 1
@@ -109,14 +129,32 @@ class SomeTea(name: String, random: Random) extends Bot {
   def findRandom(attempts: Int, predicate: P ⇒ Boolean): Seq[P] = {
     val buf = new ArrayBuffer[P]()
     for (_ ← 0 until attempts) {
-      val x = X(random.nextInt(n))
-      val y = Y(random.nextInt(m))
+      val x = X(random.nextInt(n.x))
+      val y = Y(random.nextInt(m.y))
       val p = P(x, y)
       if (predicate(p))
         buf += p
     }
     buf
   }
+
+  def findClosest(limit: Int, o: P, predicate: P ⇒ Boolean): Option[P] = {
+    for (r ← 1 to limit) {
+      for (k ← 0 until r) {
+        val ps = Array(
+          P(X(o.x.x - k), Y(o.y.y + r - k)).bound(n, m),
+          P(X(o.x.x + k - r), Y(o.y.y - k)).bound(n, m),
+          P(X(o.x.x + k), Y(o.y.y - r + k)).bound(n, m),
+          P(X(o.x.x - k + r), Y(o.y.y + k)).bound(n, m)
+        )
+        val opt = ps.find(predicate)
+        if (opt.isDefined)
+          return opt
+      }
+    }
+    None
+  }
+
 
 }
 
@@ -136,28 +174,11 @@ object SomeTea {
     }
   }
 
-  def buildPath(s: P, d: P, horzFirst: Boolean): Seq[P] = {
-    if (horzFirst)
-      s.x.horz(s.y, d.y) ++ d.y.vert(s.x, d.x) // do ← → then ↑ ↓
+  def buildPath(s: P, d: P, horz: Boolean): Seq[P] = {
+    if (horz)
+      s.y.horz(s.x, d.x) ++ d.x.vert(s.y, d.y) // do ← → then ↑ ↓
     else
-      s.y.vert(s.x, d.x) ++ d.x.horz(s.y, d.y) // do ↑ ↓ then ← →
-  }
-
-  def findClosest(limit: Int, o: P, predicate: P ⇒ Boolean): Option[P] = {
-    for (r ← 1 to limit) {
-      for (k ← 0 until r) {
-        val ps = Array(
-          P(X(o.x.x - k),     Y(o.y.y + r - k)),
-          P(X(o.x.x + k - r), Y(o.y.y - k)),
-          P(X(o.x.x + k),     Y(o.y.y - r + k)),
-          P(X(o.x.x - k + r), Y(o.y.y + k))
-        )
-        val opt = ps.find(predicate)
-        if (opt.isDefined)
-          return opt
-      }
-    }
-    None
+      s.x.vert(s.y, d.y) ++ d.y.horz(s.x, d.x) // do ↑ ↓ then ← →
   }
 
   def distance(p: P, q: P): Int = abs(p.x.x - q.x.x) + abs(p.y.y - q.y.y)
@@ -198,7 +219,21 @@ object SomeTea {
   }
 
   def main(args: Array[String]): Unit = {
-
-
+    val random = new Random(123)
+    val game = new Gameplay
+    val bots = mutable.Buffer[Bot](new SomeTea("1", random), new SBot("2", random))
+    //val bots = mutable.Buffer[Bot](new SBot("1", random), new SBot("2", random))
+    val botNames = bots.map(_.getName).asJava
+    val gs = game.createMatch(10, 20, bots.asJava, 100L, 0.9, 0).getGameState
+    for (_ ← 0 until 100) {
+      for (k ← bots.indices) {
+        val cgs = game.getClientGameState(gs, k)
+        val move = bots(k).move(cgs)
+        game.step(gs, k, move)
+        //println("move = " + move + " current game state = \n" + gs.toString)
+        println(game.describeGameState(gs, botNames, false, false))
+        //Thread.sleep(100)
+      }
+    }
   }
 }
