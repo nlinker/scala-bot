@@ -1,64 +1,50 @@
 package nick
 
-import com.lineate.xonix.mind.model._
-import nick.Utils._
+import java.lang.Math.abs
 
-import scala.collection.mutable
+import com.lineate.xonix.mind.model.Move._
+import com.lineate.xonix.mind.model._
+
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import nick.Decartes.{P, X, Y}
+import nick.SomeTea._
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 
-object Test extends App {
-  import nick.Decartes.{X, Y, P}
+class SomeTea(name: String, random: Random) extends Bot {
 
-  val x = X(0)
-  val y = Y(2)
-  println(Point.of(x.x + 1, y.y + 2))
-  println(P(x, y))
-  val np = P(x, y) match {
-    case P(a, b) ⇒ println(s"decoded ${a.x} and ${b.y}")
-  }
-}
-
-class SomeTea extends Bot {
+  // required by API
+  def this() = this("", new Random())
 
   val version = 1
-  val random = new Random()
-  val neigh = Seq(Pair(0, -1), Pair(-1, 0), Pair(0, 1), Pair(1, 0))
-
-  val me = new mutable.ArrayBuffer[Point]()
-  val all = new mutable.HashMap[Int, Seq[Point]]()
 
   // initialized on the first iteration
-  var randomSeed = 0L
   var m = 0
   var n = 0
   var id = 0
 
   // updated on each iteration
   var iter = 0
-  var field: Array[Array[Cell]] = Array()
-  var curHead: Point = Point.of(0, 0)
-  var lastHead: Point = Point.of(0, 0)
+  var gs: GameState = _
+  var me: Seq[P] = Seq()
+  var all: mutable.Buffer[Seq[P]] = mutable.Buffer()
+  def meHead: P = me.last
+  def cells(p: P): Cell = gs.cells(fromX(p.x))(fromY(p.y))
+  def fromX(x: X): Int = x.x
+  def fromY(y: Y): Int = m - 1 - y.y
+  def from(p: P): Point = Point.of(m - 1 - p.y.y, p.x.x)
+  def to(p: Point): P = P(X(m - 1 - p.getRow), Y(p.getCol))
+
+  var curHead: P = P(X(0), Y(0))
+  var lastHead: P = P(X(0), Y(0))
   var curMove: Option[Move] = None
   var lastMove: Option[Move] = None
-  var path: Seq[Point] = Seq()
-
-  def initStuff(gs: GameState): Unit = {
-    if (iter == 0) {
-      m = gs.cells.length
-      n = gs.cells.head.length
-      id = gs.botId
-      randomSeed = seed(random)
-    }
-    iter += 1
-    field = gs.cells
-    lastHead = curHead
-    curHead = gs.me.head().get()
-  }
+  var path: Seq[P] = Seq()
 
   override def getName: String =
-    s"Some[T] v$version " + randomSeed + " " + iter + " " + showMove(curMove)
+    s"Some[T] v$version " + iter + " " + showMove(curMove)
 
   override def move(gs: GameState): Move = {
     initStuff(gs)
@@ -69,49 +55,102 @@ class SomeTea extends Bot {
       path = Seq()
     }
 
-    val theMove = if (path.nonEmpty) {
-      val newHead = path.head
-      path = path.tail
-      direction(curHead, newHead)
-    } else {
-      // generate the new path
-      val dst = findEmpty(field, 20).headOption
-      if (dst.isDefined) {
-        path = buildPath(curHead, dst.get, random.nextBoolean())
-        findClosest(dst.get, borderOrOwned).foreach { border ⇒
-          path = path ++ buildPath(dst.get, border, random.nextBoolean())
-        }
-        val newHead = path.head
-        path = path.tail
-        direction(curHead, newHead)
-      } else {
-        Move.STOP
-      }
-    }
+    //val theMove = if (path.nonEmpty) {
+    //  val newHead = path.head
+    //  path = path.tail
+    //  direction(curHead, newHead)
+    //} else {
+    //  // generate the new path
+    //  val dst = findEmpty(field, 20).headOption
+    //  if (dst.isDefined) {
+    //    path = buildPath(curHead, dst.get, random.nextBoolean())
+    //    findClosest(dst.get, borderOrOwned).foreach { border ⇒
+    //      path = path ++ buildPath(dst.get, border, random.nextBoolean())
+    //    }
+    //    val newHead = path.head
+    //    path = path.tail
+    //    direction(curHead, newHead)
+    //  } else {
+    //    STOP
+    //  }
+    //}
+    val theMove = STOP
     lastMove = curMove
     curMove = Some(theMove)
 
     theMove
   }
 
-  def distance(src: Point, dst: Point): Int =
-    Math.abs(dst.getRow - src.getRow) + Math.abs(dst.getCol - src.getCol)
-
-  def borderOrOwned(p: Point): Boolean = {
-    val ct = field(p.getRow)(p.getCol).getCellType
-    ct == CellType.BORDER || ct == CellType.OWNED
+  def initStuff(apiGs: GameState): Unit = {
+    if (iter == 0) {
+      m = apiGs.cells.length
+      n = apiGs.cells.head.length
+      id = apiGs.botId
+    }
+    iter += 1
+    gs = apiGs
+    me = apiGs.me.getBody.asScala.map(to)
+    all = new mutable.ArrayBuffer[Seq[P]](apiGs.others.size())
+    for (i ← 0 until apiGs.others.size()) {
+      if (i == id) {
+        all += me.tail
+      } else {
+        all += apiGs.others.get(i).getIt.asScala.map(to)
+      }
+    }
+    lastHead = curHead
+    curHead = meHead
   }
 
-  def findClosest(origin: Point, predicate: Point ⇒ Boolean): Option[Point] = {
-    val oi = origin.getRow
-    val oj = origin.getCol
-    for (r ← 1 to (m + n)) {
+  def findRandomEmpty(attempts: Int): Seq[P] = {
+    findRandom(attempts, cells(_).isEmpty)
+  }
+
+  def findRandom(attempts: Int, predicate: P ⇒ Boolean): Seq[P] = {
+    val buf = new ArrayBuffer[P]()
+    for (_ ← 0 until attempts) {
+      val x = X(random.nextInt(n))
+      val y = Y(random.nextInt(m))
+      val p = P(x, y)
+      if (predicate(p))
+        buf += p
+    }
+    buf
+  }
+
+}
+
+object SomeTea {
+
+  val neigh = Seq(Pair(0, -1), Pair(-1, 0), Pair(0, 1), Pair(1, 0))
+  val disamb: Array[Move] = Array(Move.RIGHT, Move.LEFT, Move.LEFT, Move.RIGHT)
+
+  def showMove(maybeMove: Option[Move]): String = {
+    // ← → ↑ ↓ ↖ ↗ ↘ ↙
+    maybeMove match {
+      case Some(LEFT)  ⇒ "\uD83E\uDC50"
+      case Some(DOWN)  ⇒ "\uD83E\uDC53"
+      case Some(RIGHT) ⇒ "\uD83E\uDC52"
+      case Some(UP)    ⇒ "\uD83E\uDC51"
+      case _           ⇒ ""
+    }
+  }
+
+  def buildPath(s: P, d: P, horzFirst: Boolean): Seq[P] = {
+    if (horzFirst)
+      s.x.horz(s.y, d.y) ++ d.y.vert(s.x, d.x) // do ← → then ↑ ↓
+    else
+      s.y.vert(s.x, d.x) ++ d.x.horz(s.y, d.y) // do ↑ ↓ then ← →
+  }
+
+  def findClosest(limit: Int, o: P, predicate: P ⇒ Boolean): Option[P] = {
+    for (r ← 1 to limit) {
       for (k ← 0 until r) {
         val ps = Array(
-          Point.of(oi - k, oj + r - k),
-          Point.of(oi - r + k, oj - k),
-          Point.of(oi + k, oj - r + k),
-          Point.of(oi + r - k, oj + k)
+          P(X(o.x.x - k),     Y(o.y.y + r - k)),
+          P(X(o.x.x + k - r), Y(o.y.y - k)),
+          P(X(o.x.x + k),     Y(o.y.y - r + k)),
+          P(X(o.x.x - k + r), Y(o.y.y + k))
         )
         val opt = ps.find(predicate)
         if (opt.isDefined)
@@ -121,66 +160,45 @@ class SomeTea extends Bot {
     None
   }
 
-  def showMove(maybeMove: Option[Move]): String = {
-    maybeMove match {
-      case Some(Move.LEFT)  ⇒ "\uD83E\uDC50"
-      case Some(Move.DOWN)  ⇒ "\uD83E\uDC53"
-      case Some(Move.RIGHT) ⇒ "\uD83E\uDC52"
-      case Some(Move.UP)    ⇒ "\uD83E\uDC51"
-      case _                ⇒ ""
-    }
+  def distance(p: P, q: P): Int = abs(p.x.x - q.x.x) + abs(p.y.y - q.y.y)
+
+  def direction(src: P, dst: P): Move = {
+    // quadrants
+    //   2 1
+    //   3 4
+    // q1, disamb(0) is used when 0 < dx == dy
+    // q2, disamb(1) is used when dx < 0, -dx == dy
+    // q3, disamb(2) is used when dx < 0, dx == dy
+    // q4, disamb(3) is used when 0 < dx == -dy
+    direction(src, dst, disamb)
   }
 
-  def direction(src: Point, p: Point): Move = {
-    val si = src.getRow
-    val sj = src.getCol
-    val di = p.getRow
-    val dj = p.getCol
-    if (di == si && dj <= sj) {
-      Move.LEFT
-    } else if (di == si && dj > sj) {
-      Move.RIGHT
-    } else if (di < si) {
-      Move.UP
-    } else {
-      Move.DOWN
-    }
+  def direction(src: P, dst: P, disamb: Array[Move]): Move = {
+    val dx = dst.x.x - src.x.x
+    val dy = dst.y.y - src.y.y
+    if (dx == 0 && dy == 0) {
+      Move.STOP
+    } else if (0 <= dx && 0 <= dy) {
+      if (dx > dy) RIGHT
+      else if (dx < dy) UP
+      else disamb(0) // (dx == dy)
+    } else if (dx <= 0 && 0 <= dy) {
+      if (-dx > dy) LEFT
+      else if (-dx < dy) UP
+      else disamb(1) // (dx == dy)
+    } else if (dx <= 0 && dy <= 0) {
+      if (-dx > -dy) LEFT
+      else if (-dx < -dy) DOWN
+      else disamb(2) // (dx == dy)
+    } else if (0 <= dx && dy <= 0) {
+      if (dx > -dy) RIGHT
+      else if (dx < -dy) DOWN
+      else disamb(3) // (dx == dy)
+    } else STOP
   }
-
-  // hf - horizontal first
-  def buildPath(src: Point, dst: Point, horzFirst: Boolean): Seq[Point] = {
-    val ord = implicitly[Ordering[Int]]
-    val sj = src.getCol
-    val si = src.getRow
-    val dj = dst.getCol
-    val di = dst.getRow
-    // ← → ↑ ↓ ↖ ↗ ↘ ↙
-    val ts = if (horzFirst)
-      si.h(sj, dj) ++ dj.v(si, di) // do ← → then ↑ ↓
-    else
-      sj.v(si, di) ++ di.h(sj, dj) // do ↑ ↓ then ← →
-    ts.map { case (i, j) ⇒ Point.of(i, j) }
-  }
-
-  def findEmpty(field: Array[Array[Cell]], np: Int): Seq[Point] = {
-    val buf = new ArrayBuffer[Point]()
-    for (k ← 0 until np) {
-      val i = random.nextInt(m)
-      val j = random.nextInt(n)
-      field(i)(j).getCellType match {
-        case CellType.EMPTY  ⇒ buf += Point.of(i, j)
-        case CellType.BORDER ⇒
-        case CellType.OWNED  ⇒
-      }
-    }
-    buf
-  }
-}
-
-object SomeTea {
 
   def main(args: Array[String]): Unit = {
-    // TODO
+
 
   }
 }
