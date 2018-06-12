@@ -54,7 +54,10 @@ class SomeTea(name: String, random: Random) extends Bot {
     if (distance(lastHead, curHead) > 1) {
       path = Seq()
     }
-
+    // avoid dumb stuff
+    if (path.forall(!cells(_).isEmpty)) {
+      path = Seq()
+    }
     val theMove = if (path.nonEmpty) {
       val newHead = path.head
       path = path.tail
