@@ -55,7 +55,7 @@ class SomeTea(name: String, random: Random) extends Bot {
       path = Seq()
     }
     // avoid dumb stuff
-    if (path.forall(!cells(_).isEmpty)) {
+    if (path.size >= 2 && path.forall(!cells(_).isEmpty)) {
       path = Seq()
     }
     val theMove = if (path.nonEmpty) {
