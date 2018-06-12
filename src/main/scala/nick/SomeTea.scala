@@ -30,6 +30,7 @@ class SomeTea(name: String, random: Random) extends Bot {
   var iter = 0
   var gs: GameState = _
   var me: Seq[P] = Seq()
+  var lastMe: Seq[P] = Seq()
   var all: mutable.Buffer[Seq[P]] = mutable.Buffer()
   def meHead: P = me.last
   def cells(p: P): Cell = gs.cells(fromY(p.y))(fromX(p.x))
@@ -49,15 +50,11 @@ class SomeTea(name: String, random: Random) extends Bot {
   override def move(gs: GameState): Move = {
     initStuff(gs)
 
-    // val me = findAll(gs)(id)
-    // if we were bitten, then reset the path
-    if (distance(lastHead, curHead) > 1) {
+    // if we were flooded or bitten, then reset the path
+    if (iter > 1 && me.size < lastMe.size) {
       path = Seq()
     }
-    // avoid dumb stuff
-    if (path.size >= 2 && path.forall(!cells(_).isEmpty)) {
-      path = Seq()
-    }
+
     val theMove = if (path.nonEmpty) {
       val newHead = path.head
       path = path.tail
@@ -115,6 +112,7 @@ class SomeTea(name: String, random: Random) extends Bot {
     }
     iter += 1
     gs = apiGs
+    lastMe = me
     me = apiGs.me.getBody.asScala.map(to)
     all = new mutable.ArrayBuffer[Seq[P]](apiGs.others.size())
     for (i ← 0 until apiGs.others.size()) {
