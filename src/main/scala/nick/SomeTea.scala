@@ -1,6 +1,7 @@
 package nick
 
 import java.lang.Math.abs
+import java.util.Optional
 
 import abc.SBot
 import com.lineate.xonix.mind.model.Move._
@@ -228,7 +229,8 @@ object SomeTea {
     val bots = mutable.Buffer[Bot](new SomeTea("1", random), new SBot("2", random))
     //val bots = mutable.Buffer[Bot](new SBot("1", random), new SBot("2", random))
     val botNames = bots.map(_.getName).asJava
-    val gs = game.createMatch(10, 20, bots.asJava, 100L, 0.9, 0).getGameState
+    val seed = Optional.of(long2Long(69L))
+    val gs = game.createMatch(10, 20, () ⇒ bots.asJava, 100L, 0.9, seed).getGameState
     for (_ ← 0 until 100) {
       for (k ← bots.indices) {
         val cgs = game.getClientGameState(gs, k)
